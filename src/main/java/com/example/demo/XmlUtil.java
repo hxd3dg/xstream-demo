@@ -46,8 +46,32 @@ public class XmlUtil {
         // 注意：不是new Xstream(); 否则报错：java.lang.NoClassDefFoundError:
         // org/xmlpull/v1/XmlPullParserFactory
         // XStream xstream=new XStream(new DomDriver());
-        XStream xstream = new XStream(new DomDriver("utf-8", new XmlFriendlyReplacer("-_", "_")));
+        XStream xstream = new XStream(new DomDriver("utf-8", new XmlFriendlyReplacer("-_", "_"))){
+            //避免标签变更导致错误
+            @Override
+            protected MapperWrapper wrapMapper(MapperWrapper next){
+                return new MapperWrapper(next) {
+                    @Override
+                    public boolean shouldSerializeMember(Class definedIn, String fieldName){
+                        if (definedIn == Object.class){
+                            try {
+                                return this.realClass(fieldName) != null;
+                            } catch (Exception e){
+                                return false;
+                            }
+                        } else {
+                            return super.shouldSerializeMember(definedIn, fieldName);
+                        }
+                    }
+                };
+            }
+
+        };
         xstream.processAnnotations(cls);
+        //自动检测注解
+        xstream.autodetectAnnotations(true);
+        //手动设置ClassLoader
+        xstream.setClassLoader(cls.getClassLoader());
         T obj = (T) xstream.fromXML(xmlStr);
         return obj;
     }
